@@ -6,9 +6,8 @@ namespace app\commands;
 
 use app\common\CsvDelimiters;
 use app\common\UserTextCommands;
-use app\common\UserTextDTO;
 use app\factory\UserTextHandlerFactory;
-use SplFileObject;
+use app\service\FileService;
 use yii\base\UserException;
 use yii\console\Controller;
 
@@ -16,9 +15,12 @@ class UserTextController extends Controller
 {
     private UserTextHandlerFactory $handlerFactory;
 
+    private FileService $fileService;
+
     public function __construct($id, $module, $config = [])
     {
         $this->handlerFactory = \Yii::$container->get(UserTextHandlerFactory::class);
+        $this->fileService = \Yii::$container->get(FileService::class);
         parent::__construct($id, $module, $config);
     }
 
@@ -28,33 +30,12 @@ class UserTextController extends Controller
     public function actionIndex(string $delimiter, string $command)
     {
         $this->validate($delimiter, $command);
-
         $handler = $this->handlerFactory->create($command);
-
-        $allFilesNameTexts = scandir('files/text');
-        $allTextsWithUserId = [];
-        foreach ($allFilesNameTexts as $filesNameText) {
-            $arrayFromFileName = explode('-', $filesNameText);
-            $userId = (int)$arrayFromFileName[0];
-            $allTextsWithUserId[$userId][] = $filesNameText;
-        }
-
-        $users = new SplFileObject('files/people.csv');
-        $users->setFlags(SplFileObject::READ_CSV);
-        while (!$users->eof()) {
-            $user = $users->fgetcsv(CsvDelimiters::$delimiters[$delimiter]);
-            if (isset($user[1])) {
-                $userIdCsv = (int)$user[0];
-                $userNameCsv = $user[1];
-
-                $textsUser = [];
-                if (isset($allTextsWithUserId[$userIdCsv])) {
-                    foreach ($allTextsWithUserId[$userIdCsv] as $fileNameTextUser) {
-                        $textsUser[] = file_get_contents('files/text/' . $fileNameTextUser);
-                    }
-                }
-
-                $handler->handleTextUser(new UserTextDTO($userIdCsv, $userNameCsv, $textsUser));
+        $allFilesNameTexts = $this->fileService->getAllFilesNameTexts();
+        foreach ($this->fileService->getUserFromCsv($delimiter) as $user) {
+            $userTextDTO = $this->fileService->getUserTexts($user, $allFilesNameTexts);
+            if ($userTextDTO !== null) {
+                $handler->handleTextUser($userTextDTO);
             }
         }
     }
