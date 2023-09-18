@@ -27,7 +27,7 @@ class ReplaceDatesHandler implements UserTextHandlerInterface
                     foreach ($foundDates as $date) {
                         $dateObject = \DateTime::createFromFormat('d/m/y', $date);
                         $dateNewFormat = $dateObject->format('m-d-Y');
-                        $text = preg_replace($initialDatePattern, $dateNewFormat, $text);
+                        $text = str_replace($date, $dateNewFormat, $text);
 
                         $this->fileService->saveChangesTextsUser($userTextDTO->id, $numberText + 1, $text);
                     }
